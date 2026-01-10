@@ -1,0 +1,7 @@
+open3d
+numpy
+matplotlib
+libigl
+pymeshlab
+
+
