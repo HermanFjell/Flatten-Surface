@@ -3,5 +3,7 @@ numpy
 matplotlib
 libigl
 pymeshlab
+tkinter
+
 
 
