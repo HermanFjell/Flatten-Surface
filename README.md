@@ -25,4 +25,4 @@ Features
 - Optional remeshing via PyMeshLab
 - Flatten using SLIM algorithm (libigl)
 - Visualize original and flattened mesh, color by strain
-- Save flattened mesh (PLY/STL/STEP)
+- Save flattened mesh (STL), DXF/STEP coming soon
