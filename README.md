@@ -1,7 +1,7 @@
 
 
 # Flatten-Surface
-Python based tool for flattening mesh surfaces with compound curvatures using Scalable Locally Injective Mappings.
+Python based tool for flattening mesh surfaces with compound curvatures using Scalable Locally Injective Mapping for strain reduction. 
 
 
 Quick notes to run the Open3D GUI for the flattener.
