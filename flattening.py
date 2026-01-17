@@ -3,6 +3,8 @@ import numpy as np
 import igl
 import pymeshlab
 import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
 
 def unique_edges(F):
     edges = np.vstack([F[:, [0,1]], F[:, [1,2]], F[:, [2,0]]])
@@ -21,30 +23,53 @@ def strain_to_rgb(strain, smax=0.02):
     colors = cmap(t)[:, :3]
     return colors
 
-def load_mesh(path, remeshing=True, target_edge_length=1, iterations=20):
+def load_mesh(path):
     """Load mesh and remesh isotropically using PyMeshLab."""
     ms = pymeshlab.MeshSet()
     ms.load_new_mesh(path)
-    
-    # Clean mesh
-    ms.apply_filter('meshing_remove_duplicate_faces')
-    ms.apply_filter('meshing_remove_duplicate_vertices')
-    ms.apply_filter('meshing_remove_null_faces')
-    ms.apply_filter('meshing_remove_unreferenced_vertices')
-    
-    if remeshing:
-        # Isotropic explicit remeshing
-        ms.apply_filter('meshing_isotropic_explicit_remeshing',
-                        targetlen=pymeshlab.PureValue(target_edge_length),
-                        iterations=iterations) 
-    
     mesh = ms.current_mesh()
     v = mesh.vertex_matrix()
     f = mesh.face_matrix()
     
     return mesh, np.array(v), np.array(f)
 
-def flatten_mesh_arap(v, f):
+def remesh_mesh(path,
+    target_edge_length=1.0,
+    iterations=10):
+    
+    """Remesh mesh using PyMeshLab."""
+    
+    ms = pymeshlab.MeshSet()
+    ms.load_new_mesh(path) 
+    
+    # Clean mesh
+    ms.apply_filter("meshing_remove_duplicate_faces")
+    ms.apply_filter("meshing_remove_duplicate_vertices")
+    ms.apply_filter("meshing_remove_null_faces")
+    ms.apply_filter("meshing_remove_unreferenced_vertices")
+    
+    ms.apply_filter("compute_curvature_principal_directions_per_vertex")
+
+    
+    # Standard uniform isotropic remeshing
+    ms.apply_filter("meshing_isotropic_explicit_remeshing",
+        targetlen=pymeshlab.PureValue(target_edge_length),
+        iterations=iterations,
+        adaptive=True,          # adaptive to curvature
+        splitflag=True,
+        collapseflag=True,
+        swapflag=True,
+        smoothflag=True,
+        reprojectflag=True
+    )
+    
+    mesh = ms.current_mesh()
+    v_remesh = mesh.vertex_matrix()
+    f_remesh = mesh.face_matrix()
+    
+    return mesh, np.array(v_remesh), np.array(f_remesh)
+
+def flatten_mesh(v, f):
 
     # Harmonic parameterization as initialization
     bnd = igl.boundary_loop(f)
@@ -136,20 +161,11 @@ def build_o3d_mesh_from_vf(v, f, vertex_colors=None):
     return mesh_o3d 
 
 if __name__ == "__main__":
-    mesh_path = r"/home/herman/Downloads/001196.STL"
+    mesh_path = r"C:\Users\bruker\Downloads\001196.STL"
 
-    target_edge_length = 2.0
-    mesh, v, f = load_mesh(mesh_path, target_edge_length, iterations=20)
+    mesh, v, f = remesh_mesh(mesh_path)
 
-    uv = None
-    while uv is None and target_edge_length < 10.0:
-        try:
-            uv, uv_flat = flatten_mesh_arap(v, f)
-            # should add more quality checks here
-        except:
-            target_edge_length += 0.2
-            mesh, v, f = load_mesh(mesh_path, target_edge_length=target_edge_length, iterations=20)
-            print(f"Retrying flattening with target edge length: {target_edge_length}")
+    uv, uv_flat = flatten_mesh(v, f)
 
     # Realign flattened mesh
     uv_flat, R2d, t2d = realign_flattened_mesh(v, uv_flat)
@@ -170,6 +186,6 @@ if __name__ == "__main__":
     o3d.visualization.draw_geometries([
         mesh_orig_o3d,
         mesh_flat_o3d
-    ], window_name="Original + Flattened Mesh", mesh_show_wireframe=False)
+    ], window_name="Original + Flattened Mesh", mesh_show_wireframe=True)
 
 
