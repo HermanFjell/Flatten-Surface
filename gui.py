@@ -42,11 +42,10 @@ class FlatteningGUI:
             if os.path.exists(icon_path):
                 self.window.set_icon(o3d.geometry.Image(icon_path))
         except Exception:
-            pass  # Icon loading is optional
+            pass 
 
         self.scene_widget = gui.SceneWidget()
         self.scene_widget.scene = rendering.Open3DScene(self.window.renderer)
-        # Use a light gray background for better contrast
 
         self.scene_widget.scene.set_background([0.3, 0.3, 0.3, 1.0])
 
@@ -127,13 +126,10 @@ class FlatteningGUI:
     def _on_layout(self, layout_context):
         r = self.window.content_rect
         panel_width = int(r.width * 0.28)
-        # Place the control panel on the left and the scene on the right
         self.panel.frame = gui.Rect(r.x, r.y, panel_width, r.height)
         self.scene_widget.frame = gui.Rect(r.x + panel_width, r.y, r.width - panel_width, r.height)
 
     def _on_load(self):
-        # Open file dialog in a separate thread to avoid blocking the main thread
-        # and to work around Open3D FileDialog issues on Windows
         self.load_button.enabled = False
         
         def open_file_dialog():
@@ -294,9 +290,9 @@ class FlatteningGUI:
                 mesh_flat_o3d = build_o3d_mesh_from_vf(V_flat_3d, self.f)
 
                 vertex_strain = calculate_vertex_strain(self.v, self.f, uv_flat_aligned)
-                # Get actual strain min/max for colorbar display
+                # Get actual strain min/max 
                 strain_min = np.min(vertex_strain) * 100 # convert to percentage
-                strain_max = np.max(vertex_strain) * 100 # convert to percentage
+                strain_max = np.max(vertex_strain) * 100 
                 strain_range = max(abs(strain_min), abs(strain_max))
                 
                 colors = strain_to_rgb(vertex_strain)
@@ -326,10 +322,8 @@ class FlatteningGUI:
                         self._add_wireframe("wireframe_orig", self.wireframe_orig)
                     if self.wireframe_flat is not None:
                         self._add_wireframe("wireframe_flat", self.wireframe_flat)
-                    # Update strain legend with actual values
                     self.strain_legend.text = f"Strain Range: {strain_min:.4f}% (Red) to {strain_max:.4f}% (Blue)"
 
-                    
                     self.save_button.enabled = True
                     self.flatten_button.enabled = True
                     self.status.text = "Flattening finished."
@@ -426,7 +420,7 @@ class FlatteningGUI:
             lines = o3d.geometry.LineSet()
             lines.points = mesh.vertices
             lines.lines = o3d.utility.Vector2iVector(np.array(edges))
-            lines.paint_uniform_color([0.0, 0.0, 0.0])  # Black wireframe
+            lines.paint_uniform_color([0.0, 0.0, 0.0]) 
             return lines
         except Exception:
             return None
