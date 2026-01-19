@@ -24,19 +24,12 @@ def strain_to_rgb(strain, smax=0.02):
     return colors
 
 def load_mesh(path):
-    """
-    Load a mesh or STEP file and return:
-    - ms : PyMeshLab MeshSet
-    - v  : vertices (np.ndarray)
-    - f  : faces (np.ndarray)
-    """
-
     ms = pymeshlab.MeshSet()
     ext = path.lower().split('.')[-1]
 
     if ext in ("step", "stp"):
         # Use trimesh to load STEP file
-        mesh = trimesh.load_mesh(path, file_type="step")  # force mesh converts solids to mesh
+        mesh = trimesh.load_mesh(path, file_type="step") 
 
         if mesh.is_empty or len(mesh.faces) == 0:
             raise ValueError("STEP import produced no faces")
@@ -45,10 +38,7 @@ def load_mesh(path):
         v = np.array(mesh.vertices, dtype=np.float64)
         f = np.array(mesh.faces, dtype=np.int32)
 
-        # Add to PyMeshLab
         ms.add_mesh(pymeshlab.Mesh(v, f), "imported_step")
-
-        # Optional Open3D mesh
         mesh_o3d = o3d.geometry.TriangleMesh()
         mesh_o3d.vertices = o3d.utility.Vector3dVector(v)
         mesh_o3d.triangles = o3d.utility.Vector3iVector(f)
@@ -68,12 +58,11 @@ def load_mesh(path):
 def remesh_mesh(path,
     target_edge_length=1.0,
     iterations=10):
-    
-    """Remesh mesh using PyMeshLab."""
-    # Load mesh (STEP or standard formats)
+
+    # Load mesh
     ms, _, _ = load_mesh(path)
 
-    # ---- Clean mesh ----
+    # Clean mesh 
     ms.apply_filter("meshing_remove_duplicate_faces")
     ms.apply_filter("meshing_remove_duplicate_vertices")
     ms.apply_filter("meshing_remove_null_faces")
@@ -82,7 +71,7 @@ def remesh_mesh(path,
     # Optional but fine
     ms.apply_filter("compute_curvature_principal_directions_per_vertex")
 
-    # ---- Isotropic remeshing ----
+    # Isotropic remeshing 
     ms.apply_filter(
         "meshing_isotropic_explicit_remeshing",
         targetlen=pymeshlab.PercentageValue(target_edge_length),
@@ -108,7 +97,7 @@ def flatten_mesh(v, f):
     bnd_uv = igl.map_vertices_to_circle(v, bnd)
     uv = igl.harmonic(v,f,bnd,bnd_uv,1)
 
-    #SLIM flattening 
+    # SLIM flattening 
     b = np.zeros(0, dtype=np.int32)
     bc = np.zeros((0,2), dtype=np.float64)
     slim_data = igl.slim_precompute(v, f, uv, igl.MappingEnergyType.SYMMETRIC_DIRICHLET, b, bc)
@@ -123,28 +112,14 @@ def flatten_mesh(v, f):
     return uv, uv_flat_aligned
 
 def realign_flattened_mesh(v_orig, uv_flat):
-    """
-    Realign a flattened mesh (uv_flat) to the original mesh (v_orig) in XY plane.
-    The flattened mesh is translated and rotated so that it best aligns in XY,
-    and lies on the global XY plane (Z=0).
-
-    Args:
-        v_orig: (N,3) original 3D mesh vertices
-        uv_flat: (N,2) flattened vertices from ARAP
-
-    Returns:
-        uv_aligned: (N,2) flattened vertices aligned to original XY
-        R: 2x2 rotation matrix applied
-        t: 2-element translation vector applied
-    """
-    # Step 1: Center both meshes in XY
+    # Center both meshes in XY
     orig_xy = v_orig[:, :2]
     flat_xy = uv_flat
     orig_center = orig_xy.mean(axis=0)
     flat_center = flat_xy.mean(axis=0)
     flat_xy_centered = flat_xy - flat_center
 
-    # Step 2: Compute optimal 2D rotation using Procrustes method
+    # Compute optimal 2D rotation using Procrustes method
     # R = argmin || R*flat_xy_centered - (orig_xy - orig_center) ||_F
     H = flat_xy_centered.T @ (orig_xy - orig_center)
     U, S, VT = np.linalg.svd(H)
@@ -155,14 +130,12 @@ def realign_flattened_mesh(v_orig, uv_flat):
         VT[1,:] *= -1
         R = VT.T @ U.T
 
-    # Step 3: Rotate flattened mesh
+    # Rotate flattened mesh
     uv_rot = (R @ flat_xy_centered.T).T
 
-    # Step 4: Translate to match original XY centroid
+    # Translate to match original XY centroid
     t = orig_center
     uv_aligned = uv_rot + t
-    #print("Applied rotation:\n", R)
-    #print("Applied translation:\n", t)
 
     return uv_aligned, R, t
 
@@ -194,19 +167,6 @@ def build_o3d_mesh_from_vf(v, f, vertex_colors=None):
 
 
 def mesh_boundary_to_file(mesh_o3d, path, fmt):
-    """
-    Export flattened XY mesh boundary to DXF or SVG.
-
-    Parameters
-    ----------
-    mesh_o3d : open3d.geometry.TriangleMesh
-        Flattened mesh on XY plane
-    path : str
-        Output file path
-    fmt : str
-        'dxf' or 'svg'
-    """
-
     # Extract boundary edges
     boundary_edges = np.asarray(mesh_o3d.get_non_manifold_edges(allow_boundary_edges=False))
 
@@ -251,10 +211,8 @@ def mesh_boundary_to_file(mesh_o3d, path, fmt):
     else:
         raise ValueError("fmt must be 'dxf' or 'svg'")
 
-    
-
 if __name__ == "__main__":
-    mesh_path = r"C:\Users\bruker\Downloads\001196.STL"
+    mesh_path = r""
 
     mesh, v, f = remesh_mesh(mesh_path)
 
@@ -280,5 +238,6 @@ if __name__ == "__main__":
         mesh_orig_o3d,
         mesh_flat_o3d
     ], window_name="Original + Flattened Mesh", mesh_show_wireframe=True)
+
 
 
