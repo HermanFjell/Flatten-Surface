@@ -4,7 +4,7 @@ import igl
 import pymeshlab
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize
+import trimesh
 
 def unique_edges(F):
     edges = np.vstack([F[:, [0,1]], F[:, [1,2]], F[:, [2,0]]])
@@ -24,50 +24,82 @@ def strain_to_rgb(strain, smax=0.02):
     return colors
 
 def load_mesh(path):
-    """Load mesh and remesh isotropically using PyMeshLab."""
+    """
+    Load a mesh or STEP file and return:
+    - ms : PyMeshLab MeshSet
+    - v  : vertices (np.ndarray)
+    - f  : faces (np.ndarray)
+    """
+
     ms = pymeshlab.MeshSet()
-    ms.load_new_mesh(path)
+    ext = path.lower().split('.')[-1]
+
+    if ext in ("step", "stp"):
+        # Use trimesh to load STEP file
+        mesh = trimesh.load_mesh(path, file_type="step")  # force mesh converts solids to mesh
+
+        if mesh.is_empty or len(mesh.faces) == 0:
+            raise ValueError("STEP import produced no faces")
+
+        # vertices and faces
+        v = np.array(mesh.vertices, dtype=np.float64)
+        f = np.array(mesh.faces, dtype=np.int32)
+
+        # Add to PyMeshLab
+        ms.add_mesh(pymeshlab.Mesh(v, f), "imported_step")
+
+        # Optional Open3D mesh
+        mesh_o3d = o3d.geometry.TriangleMesh()
+        mesh_o3d.vertices = o3d.utility.Vector3dVector(v)
+        mesh_o3d.triangles = o3d.utility.Vector3iVector(f)
+
+    else:
+        ms.load_new_mesh(path)
+        mesh = ms.current_mesh()
+        v = mesh.vertex_matrix()
+        f = mesh.face_matrix()
+
     mesh = ms.current_mesh()
     v = mesh.vertex_matrix()
     f = mesh.face_matrix()
-    
-    return mesh, np.array(v), np.array(f)
+
+    return ms, np.array(v), np.array(f)
 
 def remesh_mesh(path,
     target_edge_length=1.0,
     iterations=10):
     
     """Remesh mesh using PyMeshLab."""
-    
-    ms = pymeshlab.MeshSet()
-    ms.load_new_mesh(path) 
-    
-    # Clean mesh
+    # Load mesh (STEP or standard formats)
+    ms, _, _ = load_mesh(path)
+
+    # ---- Clean mesh ----
     ms.apply_filter("meshing_remove_duplicate_faces")
     ms.apply_filter("meshing_remove_duplicate_vertices")
     ms.apply_filter("meshing_remove_null_faces")
     ms.apply_filter("meshing_remove_unreferenced_vertices")
-    
+
+    # Optional but fine
     ms.apply_filter("compute_curvature_principal_directions_per_vertex")
 
-    
-    # Standard uniform isotropic remeshing
-    ms.apply_filter("meshing_isotropic_explicit_remeshing",
-        targetlen=pymeshlab.PureValue(target_edge_length),
+    # ---- Isotropic remeshing ----
+    ms.apply_filter(
+        "meshing_isotropic_explicit_remeshing",
+        targetlen=pymeshlab.PercentageValue(target_edge_length),
         iterations=iterations,
-        adaptive=True,          # adaptive to curvature
+        adaptive=True,
         splitflag=True,
         collapseflag=True,
         swapflag=True,
         smoothflag=True,
         reprojectflag=True
     )
-    
+
     mesh = ms.current_mesh()
-    v_remesh = mesh.vertex_matrix()
-    f_remesh = mesh.face_matrix()
-    
-    return mesh, np.array(v_remesh), np.array(f_remesh)
+    v = mesh.vertex_matrix()
+    f = mesh.face_matrix()
+
+    return mesh, np.array(v), np.array(f)
 
 def flatten_mesh(v, f):
 
@@ -159,6 +191,67 @@ def build_o3d_mesh_from_vf(v, f, vertex_colors=None):
         mesh_o3d.vertex_colors = o3d.utility.Vector3dVector(np.asarray(vertex_colors))
     mesh_o3d.compute_vertex_normals()
     return mesh_o3d 
+
+
+def mesh_boundary_to_file(mesh_o3d, path, fmt):
+    """
+    Export flattened XY mesh boundary to DXF or SVG.
+
+    Parameters
+    ----------
+    mesh_o3d : open3d.geometry.TriangleMesh
+        Flattened mesh on XY plane
+    path : str
+        Output file path
+    fmt : str
+        'dxf' or 'svg'
+    """
+
+    # Extract boundary edges
+    boundary_edges = np.asarray(mesh_o3d.get_non_manifold_edges(allow_boundary_edges=False))
+
+    vertices = np.asarray(mesh_o3d.vertices)
+
+    # Order boundary edges into a loop
+    adjacency = {}
+    for a, b in boundary_edges:
+        adjacency.setdefault(a, []).append(b)
+        adjacency.setdefault(b, []).append(a)
+
+    start = boundary_edges[0][0]
+    ordered = [start]
+    prev = None
+    current = start
+
+    while True:
+        neighbors = adjacency[current]
+        nxt = neighbors[0] if neighbors[0] != prev else neighbors[1]
+        if nxt == start:
+            break
+        ordered.append(nxt)
+        prev, current = current, nxt
+    ordered.append(start)  # close loop
+
+    # Extract XY coordinates
+    xy = np.array([[vertices[i, 0], vertices[i, 1]] for i in ordered])
+
+    fmt = fmt.lower()
+    if fmt == "svg":
+        # Use Matplotlib to export as SVG
+        fig, ax = plt.subplots()
+        ax.plot(xy[:, 0], xy[:, 1], '-k')
+        ax.set_aspect('equal')
+        ax.axis('off')
+        fig.savefig(path, format='svg', bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
+    elif fmt == "dxf":
+        # Use trimesh to export DXF
+        line = trimesh.load_path(xy)
+        line.export(path)
+    else:
+        raise ValueError("fmt must be 'dxf' or 'svg'")
+
+    
 
 if __name__ == "__main__":
     mesh_path = r"C:\Users\bruker\Downloads\001196.STL"

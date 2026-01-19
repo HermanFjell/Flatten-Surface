@@ -15,7 +15,8 @@ from flattening import (
     realign_flattened_mesh,
     calculate_vertex_strain,
     strain_to_rgb,
-    build_o3d_mesh_from_vf
+    build_o3d_mesh_from_vf,
+    mesh_boundary_to_file
 )
 
 # setup logging
@@ -105,7 +106,7 @@ class FlatteningGUI:
         self.status = gui.Label("Ready.")
 
         self.panel.add_child(self.load_button)
-        self.panel.add_child(gui.Label("Target edge length:"))
+        self.panel.add_child(gui.Label("Target edge length [%]:"))
         self.panel.add_child(self.target_len)
         self.panel.add_child(gui.Label("Remesh iterations:"))
         self.panel.add_child(self.iter_edit)
@@ -338,7 +339,7 @@ class FlatteningGUI:
                 _log_exc("Exception during flatten worker")
 
                 def fail():
-                    self.status.text = f"Flatten failed (see gui_log.txt)"
+                    self.status.text = f"Flatten failed, try remeshing or see gui_log.txt"
                     self.flatten_button.enabled = True
 
                 gui.Application.instance.post_to_main_thread(self.window, fail)
@@ -454,13 +455,26 @@ class FlatteningGUI:
                 root.destroy()
                 
                 if filename:
+                    ext = os.path.splitext(filename)[1].lower()
                     # Save on main thread
                     def on_main_thread():
                         try:
-                            o3d.io.write_triangle_mesh(filename, self.mesh_flat)
-                            self.status.text = f"Saved {os.path.basename(filename)}"
+                            if ext in (".stl", ".ply", ".obj", ".off", ".gltf", ".glb"):
+                                # Save as mesh
+                                import open3d as o3d
+                                o3d.io.write_triangle_mesh(filename, self.mesh_flat)
+                                self.status.text = f"Saved {os.path.basename(filename)}"
+
+                            elif ext in (".step", ".stp", ".dxf", ".svg"):
+                                # Save boundary using your unified function
+                                mesh_boundary_to_file(self.mesh_flat, filename, fmt=ext[1:])
+                                self.status.text = f"Saved {os.path.basename(filename)}"
+
+                            else:
+                                self.status.text = f"Unsupported file extension: {ext}"
+
                         except Exception as e:
-                            _log_exc("Error saving mesh")
+                            _log_exc("Error saving file")
                             self.status.text = f"Save failed: {e}"
                     
                     gui.Application.instance.post_to_main_thread(self.window, on_main_thread)

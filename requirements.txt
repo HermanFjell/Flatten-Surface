@@ -3,6 +3,8 @@ numpy
 matplotlib
 libigl
 pymeshlab
+trimesh
+cascadio
 
 
 

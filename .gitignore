@@ -19,7 +19,7 @@ downloads/
 eggs/
 .eggs/
 lib/
-lib64/
+lib64
 parts/
 sdist/
 var/
@@ -50,4 +50,6 @@ Thumbs.db
 *.ply
 *.stl
 *.step
+*.dxf
+*.svg
 create_icon.py

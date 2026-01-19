@@ -1,10 +1,12 @@
 
 
 # Flatten-Surface
-Python based tool for flattening mesh surfaces with compound curvatures using Scalable Locally Injective Mappings.
-
-
-Quick notes to run the Open3D GUI for the flattener.
+Python based tool for flattening mesh surfaces.
+This is intended for obtaining stencil shapes for cutting cloth to cover complex curvatures. 
+The flattening algorithm consists of:
+- Harmonic parameterization as initialization (mapping boundary and vertices to a circle)
+- 20 iterations of Scalable Locally Injective Mapping, minimizing symmetric dirichlet isometric energy.
+This provides results, in my experience, superior to certian CAD implementations.
 
 Dependencies
 - Install packages from `requirements.txt` (example):
@@ -22,7 +24,7 @@ python gui.py
 
 Features
 - Load mesh (PLY/STL/OBJ...), or STEP surface
-- Optional remeshing via PyMeshLab
+- Optional isotropic remeshing via PyMeshLab, recommended
 - Flatten using SLIM algorithm (libigl)
-- Visualize original and flattened mesh, color by strain
-- Save flattened mesh (PLY/STL/STEP)
+- Visualize original and flattened mesh, colored by strain
+- Save flattened mesh (STL/DXF/SVG)
