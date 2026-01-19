@@ -6,6 +6,7 @@ This is intended for obtaining stencil shapes for cutting cloth to cover complex
 The flattening algorithm consists of:
 - Harmonic parameterization as initialization (mapping boundary and vertices to a circle)
 - 20 iterations of Scalable Locally Injective Mapping, minimizing symmetric dirichlet isometric energy.
+
 This provides results, in my experience, superior to certian CAD implementations.
 
 Dependencies
