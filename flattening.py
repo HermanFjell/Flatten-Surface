@@ -68,7 +68,6 @@ def remesh_mesh(path,
     ms.apply_filter("meshing_remove_null_faces")
     ms.apply_filter("meshing_remove_unreferenced_vertices")
 
-    # Optional but fine
     ms.apply_filter("compute_curvature_principal_directions_per_vertex")
 
     # Isotropic remeshing 
@@ -238,6 +237,7 @@ if __name__ == "__main__":
         mesh_orig_o3d,
         mesh_flat_o3d
     ], window_name="Original + Flattened Mesh", mesh_show_wireframe=True)
+
 
 
 
