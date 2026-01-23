@@ -5,9 +5,9 @@ Python based tool for flattening mesh surfaces.
 This is intended for obtaining stencil shapes for cutting cloth to cover complex curvatures. 
 The flattening algorithm consists of:
 - Harmonic parameterization as initialization (mapping boundary and vertices to a circle)
-- 20 iterations of Scalable Locally Injective Mapping, minimizing symmetric dirichlet isometric energy.
+- Iterations of Scalable Locally Injective Mapping, minimizing symmetric dirichlet isometric energy.
 
-This provides results, in my experience, superior to certian CAD implementations.
+With enough iterations, this provides results, in my experience, superior to certian CAD implementations.
 
 Dependencies
 - Install packages from `requirements.txt` (example):
