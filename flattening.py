@@ -57,7 +57,8 @@ def load_mesh(path):
 
 def remesh_mesh(path,
     target_edge_length=1.0,
-    iterations=10):
+    iterations=10,
+    flip_normals=False):
 
     # Load mesh
     ms, _, _ = load_mesh(path)
@@ -83,13 +84,16 @@ def remesh_mesh(path,
         reprojectflag=True
     )
 
+    if flip_normals:
+        ms.apply_filter('meshing_invert_face_orientation')
+
     mesh = ms.current_mesh()
     v = mesh.vertex_matrix()
     f = mesh.face_matrix()
 
     return mesh, np.array(v), np.array(f)
 
-def flatten_mesh(v, f):
+def flatten_mesh(v, f, SLIM_iterations):
 
     # Harmonic parameterization as initialization
     bnd = igl.boundary_loop(f)
@@ -100,7 +104,7 @@ def flatten_mesh(v, f):
     b = np.zeros(0, dtype=np.int32)
     bc = np.zeros((0,2), dtype=np.float64)
     slim_data = igl.slim_precompute(v, f, uv, igl.MappingEnergyType.SYMMETRIC_DIRICHLET, b, bc)
-    uv_flat = igl.slim_solve(slim_data, iter_num=30)
+    uv_flat = igl.slim_solve(slim_data, iter_num=SLIM_iterations)
 
     # Align triangle 0, vertex 0 to original XY
     tri_id = 0
@@ -121,13 +125,19 @@ def realign_flattened_mesh(v_orig, uv_flat):
     # Compute optimal 2D rotation using Procrustes method
     # R = argmin || R*flat_xy_centered - (orig_xy - orig_center) ||_F
     H = flat_xy_centered.T @ (orig_xy - orig_center)
-    U, S, VT = np.linalg.svd(H)
-    R = VT.T @ U.T
-
-    # Ensure proper rotation (det(R) = 1)
-    if np.linalg.det(R) < 0:
-        VT[1,:] *= -1
+    
+    try:
+        U, S, VT = np.linalg.svd(H)
+    except np.linalg.LinAlgError:
+        # SVD failed to converge - use identity rotation
+        R = np.eye(2)
+    else:
         R = VT.T @ U.T
+
+        # Ensure proper rotation (det(R) = 1)
+        if np.linalg.det(R) < 0:
+            VT[1,:] *= -1
+            R = VT.T @ U.T
 
     # Rotate flattened mesh
     uv_rot = (R @ flat_xy_centered.T).T

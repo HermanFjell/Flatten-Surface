@@ -29,6 +29,9 @@ wheels/
 *.egg
 bin/
 
+# Pyinstaller
+*.spec
+
 # IDE
 .vscode/
 .idea/

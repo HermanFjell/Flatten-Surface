@@ -20,7 +20,9 @@ from flattening import (
 )
 
 # setup logging
-LOG_PATH = os.path.join(os.path.dirname(__file__), "gui_log.txt")
+#LOG_PATH = os.path.join(os.path.dirname(__file__), "gui_log.txt")
+LOG_PATH = os.path.join(os.path.expanduser("~"), "AppData", "Local", "Flatten", "gui_log.txt")
+os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 logging.basicConfig(
     filename=LOG_PATH,
     level=logging.DEBUG,
@@ -35,6 +37,14 @@ class FlatteningGUI:
         self.window = gui.Application.instance.create_window(
             "Flatten Surface - GUI", width, height
         )
+
+        try:
+            from ctypes import windll  # Only Windows.
+
+            myappid = "FlattenSurfaceApp"  # Arbitrary string
+            windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except ImportError:
+            pass
 
         # Set window icon
         icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
@@ -76,6 +86,13 @@ class FlatteningGUI:
         self.iter_edit.set_value(20)
         self.iter_edit.set_limits(1, 1000)
 
+        self.slim_iter_edit = gui.NumberEdit(gui.NumberEdit.INT)
+        self.slim_iter_edit.set_value(1000)
+        self.slim_iter_edit.set_limits(1, 10000)
+
+        self.flip_normals = gui.Checkbox("Flip Normals")
+        self.flip_normals.checked = False
+
         self.remesh_button = gui.Button("Remesh")
         self.remesh_button.set_on_clicked(self._on_remesh)
         self.remesh_button.enabled = False
@@ -109,6 +126,9 @@ class FlatteningGUI:
         self.panel.add_child(self.target_len)
         self.panel.add_child(gui.Label("Remesh iterations:"))
         self.panel.add_child(self.iter_edit)
+        self.panel.add_child(gui.Label("Flattening iterations:"))
+        self.panel.add_child(self.slim_iter_edit)
+        self.panel.add_child(self.flip_normals)
         self.panel.add_child(self.remesh_button)
         self.panel.add_child(self.flatten_button)
         self.panel.add_child(self.show_orig)
@@ -228,7 +248,7 @@ class FlatteningGUI:
                 #logging.debug(f"Starting remesh: target={target}, iters={iters}")
                 if not self.mesh_path:
                     raise RuntimeError("No mesh path available for remeshing")
-                _, v_remesh, f_remesh = remesh_mesh(self.mesh_path, target_edge_length=target, iterations=iters)
+                _, v_remesh, f_remesh = remesh_mesh(self.mesh_path, target_edge_length=target, iterations=iters, flip_normals=self.flip_normals.checked)
                 #logging.debug("Remesh completed successfully")
                 
                 def finish():
@@ -282,7 +302,8 @@ class FlatteningGUI:
 
         def worker():
             try:
-                uv, uv_flat = flatten_mesh(self.v, self.f)
+                slim_iters = int(self.slim_iter_edit.double_value)
+                uv, uv_flat = flatten_mesh(self.v, self.f, SLIM_iterations=slim_iters)
                 # realign
                 uv_flat_aligned, R, t = realign_flattened_mesh(self.v, uv_flat)
 
